@@ -1,144 +1,215 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-
-  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
-  <script id="MathJax-script" async
-  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
-  </script>
-  
-    <script>
-    document.addEventListener("DOMContentLoaded", function() {
-      // Select all <a> tags now that the DOM is ready
-      document.querySelectorAll('a').forEach(function(link) {
-        link.setAttribute('target', '_blank');
-      });
-    });
-  </script>
-
   <title>EffECT Project – Silvano Pitassi</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="style.css">
 
-  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
-  <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js"></script>
-  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+  <script>
 
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
-                   Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
-      line-height: 1.6;
-      color: #333;
-      margin-top: 60px;
-      background-color: #ffffff;
+function findMatchingBrace(text, start) {
+  let depth = 0;
+  for (let i = start; i < text.length; i++) {
+    if (text[i] === "{") depth++;
+    if (text[i] === "}") {
+      depth--;
+      if (depth === 0) return i;
     }
-    .container {
-      max-width: 1000px;
+  }
+  return -1;
+}
+
+function parseBibTeX(text) {
+  const entries = [];
+  let i = 0;
+  while ((i = text.indexOf("@", i)) !== -1) {
+    const typeMatch = text.slice(i).match(/^@([A-Za-z]+)\s*\{/);
+    if (!typeMatch) { i++; continue; }
+    const type = typeMatch[1].toLowerCase();
+    const open = i + typeMatch[0].length - 1;
+    const close = findMatchingBrace(text, open);
+    if (close < 0) break;
+
+    const content = text.slice(open + 1, close);
+    const comma = content.indexOf(",");
+    const key = content.slice(0, comma).trim();
+    const fieldsText = content.slice(comma + 1);
+    const fields = {};
+    let j = 0;
+
+    while (j < fieldsText.length) {
+      const nameMatch = fieldsText.slice(j).match(/^\s*([A-Za-z]+)\s*=\s*/);
+      if (!nameMatch) { j++; continue; }
+      const name = nameMatch[1].toLowerCase();
+      j += nameMatch[0].length;
+
+      let value = "";
+      if (fieldsText[j] === "{") {
+        const end = findMatchingBrace(fieldsText, j);
+        value = fieldsText.slice(j + 1, end);
+        j = end + 1;
+      } else if (fieldsText[j] === '"') {
+        j++;
+        let end = j;
+        while (end < fieldsText.length && fieldsText[end] !== '"') end++;
+        value = fieldsText.slice(j, end);
+        j = end + 1;
+      } else {
+        let end = j;
+        while (end < fieldsText.length && fieldsText[end] !== ",") end++;
+        value = fieldsText.slice(j, end).trim();
+        j = end;
+      }
+
+      fields[name] = cleanBibValue(value);
+      while (j < fieldsText.length && fieldsText[j] !== ",") j++;
+      if (fieldsText[j] === ",") j++;
     }
-    h2, h3 {
-      color: #005582;
-      margin-top: 40px;
+
+    entries.push({type, key, fields});
+    i = close + 1;
+  }
+  return entries;
+}
+
+function cleanBibValue(value) {
+  return value
+    .replace(/\s+/g, " ")
+    .replace(/[{}]/g, "")
+    .replace(/---/g, "–")
+    .replace(/--/g, "–")
+    .replace(/\\&/g, "&")
+    .trim();
+}
+
+function escapeHtml(value) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+function formatAuthors(authors) {
+  return escapeHtml(authors.replace(/\s+and\s+/g, ", "));
+}
+
+function formatEntry(entry) {
+  const f = entry.fields;
+  const title = escapeHtml(f.title || "Untitled");
+  const authors = formatAuthors(f.author || "");
+  const year = escapeHtml(f.year || "");
+  const url = f.url || (f.doi ? "https://doi.org/" + f.doi : "");
+  const linkedTitle = url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${title}</a>` : title;
+
+  let venue = "";
+  if (f.journal) {
+    venue += `<em>${escapeHtml(f.journal)}</em>`;
+    if (f.volume) venue += ` ${escapeHtml(f.volume)}`;
+    if (f.number) venue += `(${escapeHtml(f.number)})`;
+    if (f.pages) venue += `, ${escapeHtml(f.pages)}`;
+  } else if (f.eprint) {
+    venue += `arXiv preprint arXiv:${escapeHtml(f.eprint)}`;
+  } else if (f.note) {
+    venue += escapeHtml(f.note);
+  }
+
+  if (year) venue += venue ? `, ${year}` : year;
+  return `<li>${authors}. ${linkedTitle}. ${venue}.</li>`;
+}
+
+async function renderBibList(path, targetId, allowedKeys = null) {
+  const target = document.getElementById(targetId);
+  try {
+    const response = await fetch(path);
+    if (!response.ok) throw new Error("Could not load " + path);
+    const text = await response.text();
+    let entries = parseBibTeX(text);
+    if (allowedKeys) {
+      entries = entries.filter(entry => allowedKeys.includes(entry.key));
     }
-    a {
-      color: #0077b5;
-      text-decoration: none;
-    }
-    a:hover {
-      text-decoration: underline;
-      color: #004c8c;
-    }
-    .header-title {
-      font-size: 32px;
-      font-weight: bold;
-      color: #004c8c;
-      margin-bottom: 20px;
-    }
-    .main-content {
-      border-left: 4px solid #cce0f0;
-      padding-left: 25px;
-    }
-    ul {
-      margin-top: 10px;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 10px;
-    }
-    th, td {
-      padding: 8px 10px;
-      border-bottom: 1px solid #e6f0f8;
-    }
-    th {
-      background-color: #f5f9fc;
-      color: #005582;
-      font-weight: 600;
-    }
-    .status-submitted {
-      color: #ff9900;
-      font-weight: 500;
-    }
-    .status-review {
-      color: #0077b5;
-      font-weight: 500;
-    }
-    .status-accepted {
-      color: #009933;
-      font-weight: 500;
-    }
-    .status-published {
-      color: #333;
-      font-weight: 500;
-    }
-  </style>
+    target.innerHTML = entries.map(formatEntry).join("\n");
+  } catch (error) {
+    target.innerHTML = `<li class="small">Could not load bibliography from <code>${path}</code>.</li>`;
+  }
+}
+
+function setupTabs() {
+  document.querySelectorAll(".tab-button").forEach(button => {
+    button.addEventListener("click", () => {
+      const group = button.closest(".tab-block");
+      group.querySelectorAll(".tab-button").forEach(b => b.classList.remove("active"));
+      group.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+      button.classList.add("active");
+      group.querySelector("#" + button.dataset.tab).classList.add("active");
+    });
+  });
+}
+
+    document.addEventListener("DOMContentLoaded", function() {
+      renderBibList("references/EffECT.bib", "effect-preprints-list", ["nilsson-pitassi-2026-cochain-extensions", "pitassi-2025-global-loops", "dipietro-droniou-pitassi-2025-lifting", "dipietro-droniou-hanot-pitassi-2025-poincare"]);
+    });
+  </script>
 </head>
 
 <body>
-
   <div class="container">
-    <div class="header-title">Efficient Eddy Current Testing (EffECT)</div>
 
-    <div class="main-content">
-      <h3>Project Description</h3>
-      
-		<p>EffECT is a two-year project funded by the Marie Skłodowska-Curie Actions.  
-		This project has two main goals:</p>
+    <h1>EffECT</h1>
 
-		<ul>
-		  <li>To develop new mathematical and numerical tools for the analysis of Discrete De Rham (DDR) numerical schemes.</li>
-		  <li>To apply these tools to real-world Eddy Current Testing configurations.</li>
-		</ul>
+    <p>
+      Breaking frontiers of Eddy Current Testing simulations through Discrete de Rham methods<br>
+      Marie Skłodowska-Curie Actions, 2024–2026
+    </p>
 
-		<p>The central idea of the project is to integrate the novel mathematical capabilities of DDR methods, in particular their support for general polyhedral meshes and high-order polynomial approximations, into eddy current models.</p>
+    <p class="nav">
+      <a href="index.html">Home</a> |
+      <a href="mailto:silvano.pitassi@umontpellier.fr">Email</a> |
+      <a href="https://scholar.google.com/citations?user=9rqQPdAAAAAJ&hl=en&oi=ao">Google Scholar</a>
+    </p>
 
-      <h3>People</h3>
-      <ul>
-        <li><a href="#">Dr. Silvano Pitassi</a></li>
-        <li><a href="#">Prof. Daniele Di Pietro</a></li>
-      </ul>
+    <h2>Project Description</h2>
 
-      <h3>Publications</h3>
-<ul>
-  <li>
-    <p><strong>Uniform Poincaré inequalities for the discrete de Rham complex of differential forms</strong></p>
-	<p>D. A. Di Pietro, J. Droniou, M. Hanot, and S. Pitassi</p>
-	<p><a href="https://arxiv.org/abs/2501.16116">arXiv preprint</a></p>
-  </li>
-  <li>
-    <p><strong>Generators of \(H^1(\Gamma, \partial \Gamma^c)\) with \(\partial \Gamma^c \subset \partial \Gamma\) for triangulated surfaces \(\Gamma\): construction and classification of global loops</strong></p>
-	<p>S. Pitassi</p>
-	<p><a href="https://arxiv.org/abs/2504.05124">arXiv preprint</a></p>
-  </li>
-  <li>
-	<p><strong>Conforming lifting and adjoint consistency for the Discrete de Rham complex of differential forms</strong></p>
-	<p>D. A. Di Pietro, J. Droniou, and S. Pitassi</p>
-	<p><a href="https://arxiv.org/abs/2509.21449">arXiv preprint</a></p>
-   </li>
-</ul>
+    <p>
+      EffECT is a two-year project funded by the Marie Skłodowska-Curie Actions.
+      The project develops advanced Discrete de Rham numerical methods on polyhedral
+      meshes, with applications to electromagnetic simulations and eddy current testing.
+    </p>
 
-    </div>
+    <p>
+      The project has two main goals:
+    </p>
+
+    <ul>
+      <li>To develop new mathematical and numerical tools for the analysis of Discrete de Rham numerical schemes.</li>
+      <li>To apply these tools to real-world eddy current testing configurations.</li>
+    </ul>
+
+    <p>
+      The central idea is to integrate the mathematical capabilities of DDR methods,
+      in particular their support for general polyhedral meshes and high-order polynomial
+      approximations, into eddy-current models.
+    </p>
+
+    <h2>People</h2>
+    <ul>
+      <li>Dr. Silvano Pitassi, Principal Investigator.</li>
+      <li>Prof. Daniele A. Di Pietro, Advisor.</li>
+    </ul>
+
+    <h2>Research Directions</h2>
+    <ul>
+      <li>Discrete functional analysis for polyhedral de Rham complexes.</li>
+      <li>Uniform Poincaré-type estimates and stability of discrete complexes.</li>
+      <li>Conforming liftings, adjoint consistency, and stabilization-free formulations.</li>
+      <li>Cohomology, topology, and compatible discretizations for electromagnetic models.</li>
+    </ul>
+
+    <h2>Publications and Preprints</h2>
+    <ul id="effect-preprints-list" class="bib-list">
+      <li class="small">Loading project outputs from <code>references/preprints.bib</code>...</li>
+    </ul>
+
   </div>
-
 </body>
 </html>
