@@ -7,6 +7,15 @@
   <link rel="stylesheet" href="style.css">
 
   <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+
+  <script>
 
 function findMatchingBrace(text, start) {
   let depth = 0;
@@ -76,10 +85,17 @@ function parseBibTeX(text) {
 function cleanBibValue(value) {
   return value
     .replace(/\s+/g, " ")
-    .replace(/[{}]/g, "")
     .replace(/---/g, "–")
     .replace(/--/g, "–")
     .replace(/\\&/g, "&")
+    .split(/(\$[^$]*\$)/g)
+    .map(part => {
+      if (part.startsWith("$") && part.endsWith("$")) {
+        return part;
+      }
+      return part.replace(/[{}]/g, "");
+    })
+    .join("")
     .trim();
 }
 
@@ -121,7 +137,7 @@ function formatEntry(entry) {
 async function renderBibList(path, targetId, allowedKeys = null) {
   const target = document.getElementById(targetId);
   try {
-    const response = await fetch(path);
+    const response = await fetch(path, { cache: 'no-store' });
     if (!response.ok) throw new Error("Could not load " + path);
     const text = await response.text();
     let entries = parseBibTeX(text);
@@ -129,6 +145,10 @@ async function renderBibList(path, targetId, allowedKeys = null) {
       entries = entries.filter(entry => allowedKeys.includes(entry.key));
     }
     target.innerHTML = entries.map(formatEntry).join("\n");
+
+    if (window.MathJax && MathJax.typesetPromise) {
+      await MathJax.typesetPromise([target]);
+    }
   } catch (error) {
     target.innerHTML = `<li class="small">Could not load bibliography from <code>${path}</code>.</li>`;
   }
@@ -147,8 +167,8 @@ function setupTabs() {
 }
 
     document.addEventListener("DOMContentLoaded", function() {
-      renderBibList("references/EffECT.bib", "effect-preprints-list", ["nilsson-pitassi-2026-cochain-extensions", "pitassi-2025-global-loops", "dipietro-droniou-pitassi-2025-lifting", "dipietro-droniou-hanot-pitassi-2025-poincare"]);
-    });
+  renderBibList("references/EffECT.bib", "effect-preprints-list");
+});
   </script>
 </head>
 
