@@ -1,9 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>Silvano Pitassi</title>
+  <title>Silvano Pitassi | Numerical Analysis and Computational Electromagnetics</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Silvano Pitassi — researcher in numerical analysis, computational electromagnetics, polyhedral methods, discrete de Rham methods, and computational topology.">
+  <meta name="author" content="Silvano Pitassi">
+  <meta name="google-site-verification" content="JVGSlYDtJTg8Rn1uGSDAywLfwq5S1WEgMbV-e8SwMRo">
+  <link rel="canonical" href="https://silvano-pitassi.github.io/">
   <link rel="stylesheet" href="style.css">
 
   <script>
@@ -123,8 +127,10 @@ function formatEntry(entry) {
     if (f.volume) venue += ` ${escapeHtml(f.volume)}`;
     if (f.number) venue += `(${escapeHtml(f.number)})`;
     if (f.pages) venue += `, ${escapeHtml(f.pages)}`;
+    if (f.note) venue += `, ${escapeHtml(f.note)}`;
   } else if (f.eprint) {
     venue += `arXiv preprint arXiv:${escapeHtml(f.eprint)}`;
+    if (f.note) venue += `, ${escapeHtml(f.note)}`;
   } else if (f.note) {
     venue += escapeHtml(f.note);
   }

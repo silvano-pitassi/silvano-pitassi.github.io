@@ -1,9 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>EffECT Project – Silvano Pitassi</title>
+  <title>EffECT Project | Silvano Pitassi</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="EffECT is a Marie Skłodowska-Curie project led by Silvano Pitassi on Discrete de Rham methods for polyhedral electromagnetic simulations and eddy current testing.">
+  <meta name="author" content="Silvano Pitassi">
+  <link rel="canonical" href="https://silvano-pitassi.github.io/EffECT.html">
   <link rel="stylesheet" href="style.css">
 
   <script>
@@ -124,8 +127,10 @@ function formatEntry(entry) {
     if (f.volume) venue += ` ${escapeHtml(f.volume)}`;
     if (f.number) venue += `(${escapeHtml(f.number)})`;
     if (f.pages) venue += `, ${escapeHtml(f.pages)}`;
+    if (f.note) venue += `, ${escapeHtml(f.note)}`;
   } else if (f.eprint) {
     venue += `arXiv preprint arXiv:${escapeHtml(f.eprint)}`;
+    if (f.note) venue += `, ${escapeHtml(f.note)}`;
   } else if (f.note) {
     venue += escapeHtml(f.note);
   }
